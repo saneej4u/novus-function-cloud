@@ -2,7 +2,9 @@ import * as functions from 'firebase-functions';
 
 // The Firebase Admin SDK to access Cloud Firestore.
 const admin = require('firebase-admin');
-const stripe = require('stripe')('sk_test_eLXRJynJYpe4E944tEAchGkt', {apiVersion: ''});
+const stripe = require('stripe')(functions.config().stripe.secret, {
+  apiVersion: '2020-03-02',
+});
 
 admin.initializeApp();
 
