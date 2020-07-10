@@ -10,28 +10,40 @@ admin.initializeApp();
 
   export const updateStripePaymentIntent = functions.firestore.document('basket/{id}').onUpdate(async (change, context) => {
   
+    const oldValue = change.before.data();
     const newValue = change.after.data();
   
-    if(!newValue.isPaymentIntent)
+    if(!newValue.isPaymentIntent || oldValue.totalPrice == newValue.totalPrice)
     {
       return null
     }
-  
-    const { amount, currency } = newValue;
-  
+ 
     try 
     {
-      // Create a charge using the pushId as the idempotency key
-      // to protect against double charges.
-      const payment = await stripe.paymentIntents.create(
+     
+      if(newValue.payment)
+      {
+        const paymentIntentId = newValue.payment.id;
+
+        const payment = await stripe.paymentIntents.update(paymentIntentId,{ amount: newValue.totalPrice});
+        return change.after.ref.set({payment}, {merge: true});
+      }
+      else
+      {
+        const amount = newValue.totalPrice;
+        const currency = 'gbp';         
+        const idempotencyKey = context.params.id;
+
+        const payment = await stripe.paymentIntents.create(
         {
           amount,
           currency,
           payment_method_types: ['card'],
-        });
-      // If the result is successful, write it back to the database.
-           // Then return a promise of a set operation to update the count
-           return change.after.ref.set({payment}, {merge: true});
+        },  { idempotencyKey });
+
+        return change.after.ref.set({payment}, {merge: true});
+      }
+
     } 
     catch (error) 
     {
